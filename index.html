@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Command Center v7.4 // Fully Optimized & Streamlined</title>
+
+<!-- MQTT Library for instant cross-computer sync -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+
+<style>
+  :root {
+    --bg-dark: #05070a;
+    --panel-bg: #0b111a;
+    --border-color: #1a2636;
+    --glow-color: #00ffcc;
+    --text-primary: #cbd5e1;
+    --text-muted: #4e6580;
+    --accent-red: #ff3366;
+    --accent-orange: #ff9900;
+    --accent-purple: #bc6ff1;
+    --accent-green: #00ff66;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  /* CRT Scanline Effect */
+  body::before {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.04));
+    z-index: 99999;
+    background-size: 100% 4px, 6px 100%;
+    pointer-events: none;
+  }
+
+  header {
+    background: var(--panel-bg);
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo {
+    font-weight: bold;
+    color: var(--glow-color);
+    text-shadow: 0 0 8px var(--glow-color);
+    letter-spacing: 1px;
+    font-size: 0.95em;
+  }
+
+  .connection-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--border-color);
+    background: rgba(0,0,0,0.4);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .connection-badge.online {
+    color: var(--accent-green);
+    border-color: var(--accent-green);
+    box-shadow: 0 0 6px rgba(0,255,102,0.2);
+  }
+  .connection-badge.offline {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+  }
+
+  .header-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .main-container {
+    display: flex;
+    flex: 1;
+    gap: 10px;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .feed-wrapper {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    background: rgba(5, 7, 10, 0.95);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+  }
+
+  .feed-toolbar {
+    padding: 6px 12px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .feed-search {
+    flex: 1;
+    background: #090d14;
+    border: 1px solid var(--border-color);
+    color: #fff;
+    padding: 6px 10px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.85em;
+    border-radius: 4px;
+    outline: none;
+  }
+  .feed-search:focus {
+    border-color: var(--glow-color);
+  }
+
+  #feed {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    scroll-behavior: smooth;
+    min-height: 0;
+  }
+
+  #scrollNotice {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-bg);
+    border: 1px solid var(--glow-color);
+    color: var(--glow-color);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    display: none;
+    z-index: 10;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg-dark);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--glow-color);
+  }
+
+  .msg {
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    background: rgba(15, 22, 34, 0.4);
+    border: 1px solid var(--border-color);
+    line-height: 1.4;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .msg.urgent {
+    border-color: var(--accent-orange);
+    background: rgba(255, 153, 0, 0.05);
+  }
+
+  .msg.critical {
+    border-color: var(--accent-red);
+    background: rgba(255, 51, 102, 0.08);
+    box-shadow: 0 0 10px rgba(255, 51, 102, 0.2);
+  }
+
+  .msg.burner-msg {
+    border-style: dashed;
+    border-color: var(--accent-purple);
+    background: rgba(188, 111, 241, 0.04);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 0.8em;
+  }
+
+  .user {
+    font-weight: bold;
+  }
+
+  .time {
+    color: var(--text-muted);
+    font-size: 0.8em;
+    margin-left: auto;
+  }
+
+  .priority-tag {
+    font-size: 0.7em;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .priority-tag.urgent { background: var(--accent-orange); color: #000; }
+  .priority-tag.critical { background: var(--accent-red); color: #fff; }
+  .priority-tag.burner { background: var(--accent-purple); color: #fff; }
+
+  .text-payload {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.35;
+    font-size: 0.95em;
+  }
+
+  .sys-alert {
+    color: var(--glow-color);
+    font-style: italic;
+    border-left: 3px solid var(--glow-color);
+    padding-left: 8px;
+  }
+
+  #radar-panel {
+    flex: 1.2;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    overflow-y: auto;
+    min-height: 0;
+    gap: 12px;
+  }
+
+  .panel-title {
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: var(--glow-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 4px;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-bottom: 6px;
+  }
+
+  #radar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85em;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+
+  .operator-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    justify-content: space-between;
+  }
+
+  .operator-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--glow-color);
+    box-shadow: 0 0 6px var(--glow-color);
+    flex-shrink: 0;
+  }
+
+  .status-badge-mini {
+    font-size: 0.65em;
+    padding: 1px 4px;
+    border-radius: 2px;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .pixel-grid {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 1px;
+    background: var(--border-color);
+    padding: 2px;
+    border-radius: 3px;
+  }
+  .pixel-cell {
+    aspect-ratio: 1;
+    background: #05070a;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+  .pixel-cell:hover {
+    opacity: 0.8;
+  }
+  .palette-bar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .palette-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    padding: 0;
+  }
+  .palette-color.selected {
+    border-color: #fff;
+    transform: scale(1.15);
+    box-shadow: 0 0 6px rgba(255,255,255,0.4);
+  }
+
+  .control-dock {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    flex-shrink: 0;
+  }
+
+  .macro-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--border-color);
+    align-items: center;
+  }
+
+  .macro-btn {
+    font-size: 0.7em;
+    padding: 3px 6px;
+    background: rgba(26, 38, 54, 0.4);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+  }
+  .macro-btn:hover {
+    color: var(--glow-color);
+    border-color: var(--glow-color);
+  }
+
+  #inputBar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  input, select, button {
+    font-family: 'Courier New', Courier, monospace;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 8px 12px;
+    outline: none;
+    transition: all 0.2s ease;
+    font-size: 0.9em;
+  }
+
+  input, select {
+    background: #090d14;
+    color: #fff;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--glow-color);
+    box-shadow: 0 0 8px rgba(0, 255, 204, 0.2);
+  }
+
+  #usernameBox { width: 130px; }
+  #statusSelect { width: 120px; font-size: 0.85em; }
+  #msgInput { flex: 1; }
+
+  button {
+    background: rgba(26, 38, 54, 0.5);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-weight: bold;
+  }
+
+  button:hover {
+    background: var(--border-color);
+    color: var(--glow-color);
+  }
+
+  #sendBtn {
+    background: var(--glow-color);
+    color: var(--bg-dark);
+    border: none;
+    padding: 8px 18px;
+  }
+
+  #sendBtn:hover {
+    background: #00cca3;
+    box-shadow: 0 0 12px rgba(0, 255, 204, 0.4);
+  }
+
+  #muteBtn, #notifBtn, #ttsBtn, #burnerBtn, #helpBtn {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  #helpModal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(5, 7, 10, 0.85);
+    z-index: 100000;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  .modal-content {
+    background: var(--panel-bg);
+    border: 1px solid var(--glow-color);
+    border-radius: 6px;
+    max-width: 550px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 25px rgba(0, 255, 204, 0.2);
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    font-size: 0.85em;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    line-height: 1.4;
+  }
+  .modal-section-title {
+    color: var(--glow-color);
+    font-weight: bold;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .modal-body ul {
+    margin-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .modal-body code {
+    background: #090d14;
+    padding: 2px 5px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    color: var(--glow-color);
+  }
+
+  @media (max-width: 768px) {
+    header { padding: 8px 10px; }
+    .header-controls { width: 100%; justify-content: space-between; }
+    #usernameBox, #statusSelect { flex: 1; width: auto; }
+    .main-container { flex-direction: column; }
+    #radar-panel { max-height: 150px; }
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo-area">
+    <div class="logo" id="headerLogo">🛰 TERMINUS_COMMAND_CENTER // v7.4</div>
+    <div id="connectionBadge" class="connection-badge offline">OFFLINE</div>
+  </div>
+  <div class="header-controls">
+    <input id="usernameBox" placeholder="SYS_OPERATOR_ID" autocomplete="off" />
+    <select id="statusSelect">
+      <option value="10-8 ACTIVE">10-8 Active</option>
+      <option value="10-6 BUSY">10-6 Busy</option>
+      <option value="10-7 OFFLINE">10-7 Off-Duty</option>
+      <option value="EN ROUTE">En Route</option>
+      <option value="ON SCENE">On Scene</option>
+    </select>
+    <button id="helpBtn" title="Help & Command Key">❓</button>
+    <button id="burnerBtn" title="Toggle Burner Message Mode (60s Self-Destruct)" style="color: var(--text-muted);">🔥</button>
+    <button id="ttsBtn" title="Toggle Text-to-Speech Voice Dispatcher" style="color: var(--glow-color);">🗣</button>
+    <button id="notifBtn" title="Enable Desktop Notifications">🔔</button>
+    <button id="muteBtn" title="Toggle System Audio">🔊</button>
+  </div>
+</header>
+
+<div class="main-container">
+  <div class="feed-wrapper">
+    <div class="feed-toolbar">
+      <input type="text" id="feedSearch" class="feed-search" placeholder="Filter feed logs (Ctrl + K)..." autocomplete="off" />
+      <button class="macro-btn" id="exportBtn" title="Export Log Transcript">📥 EXPORT</button>
+    </div>
+    <div id="feed">
+      <div class="msg">
+        <div class="msg-meta"><span class="user" style="color: var(--glow-color)">[SYSTEM]</span><span class="time">CORE_READY</span></div>
+        <div class="text-payload sys-alert">&gt;&gt; Optimized core stream initialized. Drag-to-draw pixel canvas and sync online.</div>
+      </div>
+    </div>
+    <div id="scrollNotice" onclick="scrollToBottom()">New messages below [↓]</div>
+  </div>
+  
+  <div id="radar-panel">
+    <div>
+      <div class="panel-title"><span class="status-dot"></span> Active Matrix Nodes</div>
+      <div id="radar-list"></div>
+    </div>
+    <div>
+      <div class="panel-title"><span style="color: var(--accent-purple);">■</span> Micro Pixel Canvas</div>
+      <div id="pixelGridContainer" class="pixel-grid"></div>
+      <div class="canvas-controls" style="display: flex; gap: 6px; justify-content: space-between; align-items: center; margin-top: 6px;">
+        <div id="paletteBar" class="palette-bar"></div>
+        <button class="macro-btn" id="clearCanvasBtn" title="Clear Canvas" style="font-size: 0.65em; padding: 4px 8px;">CLEAR</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="control-dock">
+  <div class="macro-bar">
+    <span style="font-size: 0.7em; color: var(--text-muted); align-self: center; margin-right: 2px;">MACROS:</span>
+    <button class="macro-btn" onclick="sendMacro('10-4 / ACKNOWLEDGED')">10-4</button>
+    <button class="macro-btn" onclick="sendMacro('STATUS: EN ROUTE')">EN ROUTE</button>
+    <button class="macro-btn" onclick="sendMacro('STATUS: ON SCENE')">ON SCENE</button>
+    <button class="macro-btn" onclick="sendMacro('STATUS: CLEAR / 10-8')">CLEAR</button>
+    <button class="macro-btn" onclick="sendMacro('/urgent PRIORITY CHECK-IN')">⚠️ URGENT</button>
+  </div>
+  <div id="inputBar">
+    <span style="color: var(--glow-color); font-weight: bold; margin-right: 2px; user-select: none;">&gt;</span>
+    <input id="msgInput" placeholder="Type message or command (/theme, /urgent, /clear)..." autocomplete="off" autofocus />
+    <button id="sendBtn">EXECUTE</button>
+  </div>
+</div>
+
+<div id="helpModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span style="font-weight: bold; color: var(--glow-color); font-size: 0.95em;">// SUBSYSTEM COMMAND REFERENCE</span>
+      <button id="closeHelpBtn" style="padding: 2px 8px; font-size: 0.8em;">[X]</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div class="modal-section-title">Slash Commands</div>
+        <ul>
+          <li><code>/theme &lt;name&gt;</code> - Switch UI style (<code>cyberpunk</code>, <code>matrix</code>, <code>retro</code>, <code>void</code>)</li>
+          <li><code>/clear</code> - Clear feed view locally and broadcast</li>
+          <li><code>/del last</code> - Delete the most recent message</li>
+          <li><code>/wipe</code> - Erase all chat history</li>
+          <li><code>/export</code> - Download log transcript file</li>
+        </ul>
+      </div>
+      <div>
+        <div class="modal-section-title">Shortcuts</div>
+        <ul>
+          <li><code>Ctrl + K</code> - Focus feed filter</li>
+          <li><code>Alt + U</code> - Focus input and tag as urgent</li>
+          <li><code>Esc</code> - Close modal or unfocus inputs</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOPIC_PREFIX = "terminus_cmd_center_v74_";
+const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+  clientId: 'operator_' + Math.random().toString(16).substring(2, 8),
+  keepalive: 30,
+  reconnectPeriod: 2000
+});
+
+const myId = crypto.randomUUID?.() || String(Date.now() + Math.random());
+
+const feed = document.getElementById("feed");
+const input = document.getElementById("msgInput");
+const usernameBox = document.getElementById("usernameBox");
+const statusSelect = document.getElementById("statusSelect");
+const muteBtn = document.getElementById("muteBtn");
+const notifBtn = document.getElementById("notifBtn");
+const ttsBtn = document.getElementById("ttsBtn");
+const burnerBtn = document.getElementById("burnerBtn");
+const helpBtn = document.getElementById("helpBtn");
+const helpModal = document.getElementById("helpModal");
+const closeHelpBtn = document.getElementById("closeHelpBtn");
+const radarList = document.getElementById("radar-list");
+const headerLogo = document.getElementById("headerLogo");
+const connectionBadge = document.getElementById("connectionBadge");
+const feedSearch = document.getElementById("feedSearch");
+const exportBtn = document.getElementById("exportBtn");
+const scrollNotice = document.getElementById("scrollNotice");
+
+let userScrolledUp = false;
+
+feed.addEventListener('scroll', () => {
+  const threshold = 40;
+  const position = feed.scrollHeight - feed.scrollTop - feed.clientHeight;
+  userScrolledUp = position > threshold;
+  if (!userScrolledUp) scrollNotice.style.display = 'none';
+});
+
+function scrollToBottom() {
+  feed.scrollTop = feed.scrollHeight;
+  userScrolledUp = false;
+  scrollNotice.style.display = 'none';
+}
+
+helpBtn.onclick = () => helpModal.style.display = "flex";
+closeHelpBtn.onclick = () => helpModal.style.display = "none";
+helpModal.onclick = (e) => { if (e.target === helpModal) helpModal.style.display = "none"; };
+
+notifBtn.onclick = async () => {
+  if (!("Notification" in window)) return alert("Notifications not supported.");
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") {
+    notifBtn.textContent = "🔕";
+    new Notification("TERMINUS COMMAND CENTER", { body: "Notifications active." });
+  }
+};
+
+let ttsEnabled = true;
+ttsBtn.onclick = () => {
+  ttsEnabled = !ttsEnabled;
+  ttsBtn.textContent = ttsEnabled ? "🗣" : "🔕🗣";
+  ttsBtn.style.color = ttsEnabled ? "var(--glow-color)" : "var(--text-muted)";
+};
+
+function speakMessage(sender, text) {
+  if (!ttsEnabled || !('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(`Priority dispatch from ${sender}. ${text}`);
+  utterance.rate = 1.0;
+  utterance.pitch = 0.85;
+  window.speechSynthesis.speak(utterance);
+}
+
+let burnerMode = false;
+burnerBtn.onclick = () => {
+  burnerMode = !burnerMode;
+  burnerBtn.style.color = burnerMode ? "var(--accent-purple)" : "var(--text-muted)";
+  burnerBtn.style.borderColor = burnerMode ? "var(--accent-purple)" : "var(--border-color)";
+};
+
+const GRID_SIZE = 16;
+let pixelGridData = JSON.parse(localStorage.getItem("cmd_pixels_v74") || JSON.stringify(Array(GRID_SIZE * GRID_SIZE).fill("#05070a")));
+let selectedColor = "#00ffcc";
+let isDrawing = false;
+const paletteColors = ["#05070a", "#ffffff", "#ff3366", "#00ffcc", "#ff9900", "#bc6ff1", "#00ff66", "#3b82f6"];
+
+function paintPixel(index, cell) {
+  pixelGridData[index] = selectedColor;
+  cell.style.background = selectedColor;
+  localStorage.setItem("cmd_pixels_v74", JSON.stringify(pixelGridData));
+  client.publish(TOPIC_PREFIX + 'pixel', JSON.stringify({ index, color: selectedColor }));
+}
+
+function initPixelCanvas() {
+  const container = document.getElementById("pixelGridContainer");
+  const paletteBar = document.getElementById("paletteBar");
+  const clearBtn = document.getElementById("clearCanvasBtn");
+  
+  container.innerHTML = "";
+  paletteBar.innerHTML = "";
+
+  paletteColors.forEach(color => {
+    const btn = document.createElement("button");
+    btn.className = `palette-color ${color === selectedColor && selectedColor !== '#05070a' ? 'selected' : ''}`;
+    btn.style.background = color;
+    btn.title = color === '#05070a' ? 'Eraser' : color;
+    btn.onclick = () => {
+      document.querySelectorAll('.palette-color').forEach(c => c.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedColor = color;
+    };
+    paletteBar.appendChild(btn);
+  });
+
+  clearBtn.onclick = () => {
+    pixelGridData = Array(GRID_SIZE * GRID_SIZE).fill("#05070a");
+    localStorage.setItem("cmd_pixels_v74", JSON.stringify(pixelGridData));
+    const cells = document.getElementsByClassName("pixel-cell");
+    for(let i=0; i<cells.length; i++) {
+      cells[i].style.background = "#05070a";
+      client.publish(TOPIC_PREFIX + 'pixel', JSON.stringify({ index: i, color: "#05070a" }));
+    }
+  };
+
+  window.addEventListener('mouseup', () => { isDrawing = false; });
+  window.addEventListener('touchend', () => { isDrawing = false; });
+
+  for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+    const cell = document.createElement("button");
+    cell.className = "pixel-cell";
+    cell.style.background = pixelGridData[i];
+
+    cell.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      isDrawing = true;
+      paintPixel(i, cell);
+    });
+
+    cell.addEventListener('mouseenter', () => {
+      if (isDrawing) paintPixel(i, cell);
+    });
+
+    cell.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      isDrawing = true;
+      paintPixel(i, cell);
+    });
+
+    cell.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (target && target.classList.contains('pixel-cell')) {
+        const indexArray = Array.from(container.children);
+        const idx = indexArray.indexOf(target);
+        if (idx !== -1) paintPixel(idx, target);
+      }
+    });
+
+    container.appendChild(cell);
+  }
+}
+initPixelCanvas();
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (helpModal.style.display === 'flex') helpModal.style.display = 'none';
+    else { input.blur(); feedSearch.blur(); }
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    feedSearch.focus();
+  }
+  if (e.altKey && e.key.toLowerCase() === 'u') {
+    e.preventDefault();
+    input.focus();
+    input.value = "/urgent " + input.value;
+  }
+});
+
+const themes = {
+  cyberpunk: { "--bg-dark": "#05070a", "--panel-bg": "#0b111a", "--border-color": "#1a2636", "--glow-color": "#00ffcc", "--text-primary": "#cbd5e1", "--text-muted": "#4e6580", "logo-text": "🛰 TERMINUS_COMMAND_CENTER // v7.4" },
+  matrix: { "--bg-dark": "#020502", "--panel-bg": "#050f06", "--border-color": "#0f3011", "--glow-color": "#00ff33", "--text-primary": "#a3ffa8", "--text-muted": "#38823e", "logo-text": "📟 NEB_MATRIX_CORE // RELOADED" },
+  retro: { "--bg-dark": "#120a00", "--panel-bg": "#241400", "--border-color": "#4d2b00", "--glow-color": "#ffb300", "--text-primary": "#ffe4a3", "--text-muted": "#8a5c16", "logo-text": "📜 AMBER_TERMINAL_VINTAGE // 1984" },
+  void: { "--bg-dark": "#0a050c", "--panel-bg": "#140b19", "--border-color": "#331340", "--glow-color": "#d946ef", "--text-primary": "#fae8ff", "--text-muted": "#704680", "logo-text": "🔮 VOID_NEXUS_SUBSYSTEM // UNKNOWN" }
+};
+
+function applyTheme(themeName) {
+  const targetTheme = themes[themeName];
+  if (!targetTheme) return false;
+  Object.entries(targetTheme).forEach(([variable, value]) => {
+    if (variable !== "logo-text") document.documentElement.style.setProperty(variable, value);
+  });
+  headerLogo.textContent = targetTheme["logo-text"];
+  localStorage.setItem("cmd_theme_v74", themeName);
+  return true;
+}
+applyTheme(localStorage.getItem("cmd_theme_v74") || "cyberpunk");
+
+usernameBox.value = localStorage.getItem("cmd_user_v74") || "OPERATOR_" + Math.floor(1000 + Math.random() * 9000);
+statusSelect.value = localStorage.getItem("cmd_status_v74") || "10-8 ACTIVE";
+
+function getUsernameColor(username) {
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  return `hsl(${Math.abs(hash) % 360}, 85%, 65%)`;
+}
+
+usernameBox.addEventListener("change", () => {
+  usernameBox.value = usernameBox.value.trim() || "anon";
+  localStorage.setItem("cmd_user_v74", usernameBox.value);
+  sendPresence();
+});
+
+statusSelect.addEventListener("change", () => {
+  localStorage.setItem("cmd_status_v74", statusSelect.value);
+  sendPresence();
+});
+
+let soundEnabled = true;
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+document.body.addEventListener("click", () => { if (audioCtx.state === "suspended") audioCtx.resume(); }, {once: true});
+
+function tone(freq, duration = 100, type = "sine", volume = 0.03) {
+  if (!soundEnabled) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.value = volume;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration/1000);
+    setTimeout(() => osc.stop(), duration);
+  } catch(e) {}
+}
+
+const soundSend = () => tone(600, 80, "triangle", 0.04);
+const soundReceive = () => tone(900, 50, "sine", 0.03);
+const soundCommand = () => tone(440, 150, "square", 0.02);
+const soundUrgent = () => { tone(880, 200, "sawtooth", 0.05); setTimeout(() => tone(660, 200, "sawtooth", 0.05), 220); };
+const soundCritical = () => { tone(1200, 150, "square", 0.08); setTimeout(() => tone(900, 150, "square", 0.08), 160); setTimeout(() => tone(1200, 300, "square", 0.08), 320); };
+const soundDanger = () => tone(120, 400, "sawtooth", 0.06);
+
+muteBtn.onclick = () => {
+  soundEnabled = !soundEnabled;
+  muteBtn.textContent = soundEnabled ? "🔊" : "🔇";
+};
+
+function clean(str) {
+  return String(str).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+let messages = JSON.parse(localStorage.getItem("cmd_messages_v74") || "[]");
+
+function renderMessages(filterText = "") {
+  feed.innerHTML = "";
+  const query = filterText.toLowerCase();
+  const now = Date.now();
+  
+  messages = messages.filter(msg => !msg.expiresAt || msg.expiresAt > now);
+
+  const filtered = messages.filter(msg => !query || msg.text.toLowerCase().includes(query) || msg.user.toLowerCase().includes(query));
+
+  filtered.forEach(msg => {
+    const div = document.createElement("div");
+    div.className = `msg ${msg.priority || ''} ${msg.isBurner ? 'burner-msg' : ''}`;
+    
+    const timeStr = new Date(msg.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+    const userColor = msg.isSys ? "var(--glow-color)" : getUsernameColor(msg.user);
+    
+    let priorityBadge = "";
+    if (msg.priority === 'urgent') priorityBadge = `<span class="priority-tag urgent">URGENT</span>`;
+    if (msg.priority === 'critical') priorityBadge = `<span class="priority-tag critical">CRITICAL</span>`;
+    if (msg.isBurner) priorityBadge += `<span class="priority-tag burner">BURNER</span>`;
+
+    div.innerHTML = `
+      <div class="msg-meta">
+        <span class="user" style="color: ${userColor}">${clean(msg.user)}</span>
+        ${priorityBadge}
+        <span class="time">${timeStr}</span>
+      </div>
+      <div class="text-payload ${msg.isSys ? 'sys-alert' : ''}">${clean(msg.text)}</div>
+    `;
+    feed.appendChild(div);
+  });
+
+  if (userScrolledUp) scrollNotice.style.display = 'block';
+  else feed.scrollTop = feed.scrollHeight;
+}
+renderMessages();
+
+setInterval(() => {
+  const now = Date.now();
+  const len = messages.length;
+  messages = messages.filter(msg => !msg.expiresAt || msg.expiresAt > now);
+  if (messages.length !== len) {
+    localStorage.setItem("cmd_messages_v74", JSON.stringify(messages));
+    renderMessages(feedSearch.value);
+  }
+}, 1000);
+
+feedSearch.addEventListener("input", (e) => renderMessages(e.target.value));
+
+exportBtn.onclick = () => {
+  const transcript = messages.map(m => `[${new Date(m.time).toISOString()}] [${m.user}] ${m.text}`).join('\n');
+  const blob = new Blob([transcript], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `command_center_logs_${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+let activeOperators = new Map();
+
+client.on('connect', () => {
+  connectionBadge.textContent = "ONLINE";
+  connectionBadge.className = "connection-badge online";
+  client.subscribe(TOPIC_PREFIX + 'chat');
+  client.subscribe(TOPIC_PREFIX + 'presence');
+  client.subscribe(TOPIC_PREFIX + 'cmd');
+  client.subscribe(TOPIC_PREFIX + 'pixel');
+  sendPresence();
+});
+
+client.on('offline', () => {
+  connectionBadge.textContent = "OFFLINE";
+  connectionBadge.className = "connection-badge offline";
+});
+
+function sendPresence() {
+  client.publish(TOPIC_PREFIX + 'presence', JSON.stringify({
+    id: myId,
+    user: usernameBox.value.trim() || "anon",
+    status: statusSelect.value,
+    time: Date.now()
+  }));
+}
+setInterval(sendPresence, 4000);
+
+client.on('message', (topic, payload) => {
+  try {
+    const data = JSON.parse(payload.toString());
+    if (topic === TOPIC_PREFIX + 'chat') {
+      messages.push(data);
+      localStorage.setItem("cmd_messages_v74", JSON.stringify(messages));
+      renderMessages(feedSearch.value);
+      
+      if (data.priority === 'critical') { soundCritical(); speakMessage(data.user, data.text); }
+      else if (data.priority === 'urgent') { soundUrgent(); speakMessage(data.user, data.text); }
+      else { soundReceive(); }
+    } 
+    else if (topic === TOPIC_PREFIX + 'presence' && data.id !== myId) {
+      activeOperators.set(data.id, { user: data.user, status: data.status, time: data.time });
+      updateRadarList();
+    }
+    else if (topic === TOPIC_PREFIX + 'pixel' && typeof data.index === 'number') {
+      pixelGridData[data.index] = data.color;
+      localStorage.setItem("cmd_pixels_v74", JSON.stringify(pixelGridData));
+      const cells = document.getElementsByClassName("pixel-cell");
+      if (cells[data.index]) cells[data.index].style.background = data.color;
+    }
+    else if (topic === TOPIC_PREFIX + 'cmd') {
+      if (data.action === 'clear') feed.innerHTML = "";
+      else if (data.action === 'wipe') { soundDanger(); messages = []; localStorage.setItem("cmd_messages_v74", JSON.stringify(messages)); renderMessages(); }
+      else if (data.action === 'dellast') { messages.pop(); localStorage.setItem("cmd_messages_v74", JSON.stringify(messages)); renderMessages(feedSearch.value); }
+    }
+  } catch(e) {}
+});
+
+function updateRadarList() {
+  radarList.innerHTML = "";
+  const now = Date.now();
+  for (let [id, data] of activeOperators.entries()) {
+    if (now - data.time > 12000) activeOperators.delete(id);
+  }
+
+  const selfName = usernameBox.value.trim() || "anon";
+  const selfRow = document.createElement("div");
+  selfRow.className = "operator-row";
+  selfRow.innerHTML = `
+    <div class="operator-info"><span class="status-dot"></span><span style="color: ${getUsernameColor(selfName)}">${clean(selfName)}</span><span style="font-size:9px; color:var(--text-muted)">[YOU]</span></div>
+    <span class="status-badge-mini">${clean(statusSelect.value)}</span>
+  `;
+  radarList.appendChild(selfRow);
+
+  for (let [id, data] of activeOperators.entries()) {
+    if (id !== myId) {
+      const row = document.createElement("div");
+      row.className = "operator-row";
+      row.innerHTML = `
+        <div class="operator-info"><span class="status-dot"></span><span style="color: ${getUsernameColor(data.user)}">${clean(data.user)}</span></div>
+        <span class="status-badge-mini">${clean(data.status || 'ONLINE')}</span>
+      `;
+      radarList.appendChild(row);
+    }
+  }
+}
+setInterval(updateRadarList, 3000);
+
+function handleCommand(text) {
+  const cmd = text.trim().toLowerCase();
+  if (cmd.startsWith("/theme ")) {
+    if (applyTheme(cmd.split(" ")[1])) {
+      messages.push({ id: crypto.randomUUID?.() || Date.now(), user: "[SYSTEM]", text: "Theme updated successfully.", time: Date.now(), isSys: true });
+      localStorage.setItem("cmd_messages_v74", JSON.stringify(messages));
+      renderMessages(feedSearch.value);
+    }
+    return true;
+  }
+  if (cmd === "/clear") { feed.innerHTML = ""; client.publish(TOPIC_PREFIX + 'cmd', JSON.stringify({ action: 'clear' })); return true; }
+  if (cmd === "/del last") { if (messages.length) { messages.pop(); localStorage.setItem("cmd_messages_v74", JSON.stringify(messages)); renderMessages(feedSearch.value); client.publish(TOPIC_PREFIX + 'cmd', JSON.stringify({ action: 'dellast' })); } return true; }
+  if (cmd === "/wipe") { soundDanger(); messages = []; localStorage.setItem("cmd_messages_v74", JSON.stringify(messages)); renderMessages(); client.publish(TOPIC_PREFIX + 'cmd', JSON.stringify({ action: 'wipe' })); return true; }
+  if (cmd === "/export") { exportBtn.click(); return true; }
+  return false;
+}
+
+function send(customText = null, customPriority = 'normal') {
+  const text = customText !== null ? customText : input.value.trim();
+  if (!text) return;
+
+  if (customText === null && handleCommand(text)) {
+    soundCommand();
+    input.value = "";
+    return;
+  }
+
+  let priority = customPriority;
+  let parsedText = text;
+
+  if (text.toLowerCase().startsWith("/urgent ")) { priority = 'urgent'; parsedText = text.substring(8); }
+  else if (text.toLowerCase().startsWith("/critical ")) { priority = 'critical'; parsedText = text.substring(10); }
+
+  const newMsg = {
+    id: crypto.randomUUID?.() || String(Date.now() + Math.random()),
+    user: usernameBox.value.trim() || "anon",
+    text: parsedText,
+    priority,
+    isBurner: burnerMode,
+    expiresAt: burnerMode ? Date.now() + 60000 : null,
+    time: Date.now()
+  };
+
+  client.publish(TOPIC_PREFIX + 'chat', JSON.stringify(newMsg));
+  if (priority === 'critical') soundCritical();
+  else if (priority === 'urgent') soundUrgent();
+  else soundSend();
+
+  if (customText === null) input.value = "";
+}
+
+function sendMacro(macroText) {
+  send(macroText, macroText.startsWith("/urgent") ? 'urgent' : 'normal');
+}
+
+document.getElementById("sendBtn").onclick = () => send();
+input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+</script>
+
+</body>
+</html>
