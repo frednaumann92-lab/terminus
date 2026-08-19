@@ -111,6 +111,11 @@
     flex-wrap: wrap;
   }
 
+  /* Mobile Tab Bar (Hidden on Desktop) */
+  .mobile-tab-bar {
+    display: none;
+  }
+
   .main-container {
     display: flex;
     flex: 1;
@@ -530,12 +535,61 @@
     color: var(--glow-color);
   }
 
+  /* Mobile-Specific Responsive Improvements */
   @media (max-width: 768px) {
     header { padding: 8px 10px; }
     .header-controls { width: 100%; justify-content: space-between; }
     #usernameBox, #statusSelect { flex: 1; width: auto; }
-    .main-container { flex-direction: column; }
-    #radar-panel { max-height: 150px; }
+    
+    /* Display mobile tab bar */
+    .mobile-tab-bar {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .mobile-tab-btn {
+      flex: 1;
+      padding: 6px;
+      font-size: 0.75em;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      border-radius: 4px;
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: bold;
+    }
+    .mobile-tab-btn.active {
+      color: var(--glow-color);
+      border-color: var(--glow-color);
+      background: rgba(0, 255, 204, 0.08);
+    }
+
+    /* Toggle visibility via mobile tab states */
+    .main-container.mobile-radar-active .feed-wrapper {
+      display: none !important;
+    }
+    .main-container.mobile-radar-active #radar-panel {
+      display: flex !important;
+      flex: 1;
+      max-height: none !important;
+    }
+    .main-container:not(.mobile-radar-active) #radar-panel {
+      display: none !important;
+    }
+    .main-container:not(.mobile-radar-active) .feed-wrapper {
+      display: flex !important;
+      flex: 1;
+    }
+
+    /* Prevent mobile auto-zoom on inputs */
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+
+    /* Prevent accidental page scrolling while drawing on canvas */
+    .pixel-grid {
+      touch-action: none;
+    }
   }
 </style>
 </head>
@@ -563,6 +617,12 @@
     <button id="muteBtn" title="Toggle System Audio">🔊</button>
   </div>
 </header>
+
+<!-- Mobile Tab Switcher (Only visible on mobile screens) -->
+<div class="mobile-tab-bar">
+  <button class="mobile-tab-btn active" id="tabFeedBtn" onclick="switchMobileTab('feed')">💬 CHAT FEED</button>
+  <button class="mobile-tab-btn" id="tabRadarBtn" onclick="switchMobileTab('radar')">🛰 RADAR & CANVAS</button>
+</div>
 
 <div class="main-container">
   <div class="feed-wrapper">
@@ -669,6 +729,22 @@ const exportBtn = document.getElementById("exportBtn");
 const scrollNotice = document.getElementById("scrollNotice");
 
 let userScrolledUp = false;
+
+function switchMobileTab(tab) {
+  const mainContainer = document.querySelector('.main-container');
+  const feedBtn = document.getElementById('tabFeedBtn');
+  const radarBtn = document.getElementById('tabRadarBtn');
+  
+  if (tab === 'feed') {
+    mainContainer.classList.remove('mobile-radar-active');
+    feedBtn.classList.add('active');
+    radarBtn.classList.remove('active');
+  } else {
+    mainContainer.classList.add('mobile-radar-active');
+    radarBtn.classList.add('active');
+    feedBtn.classList.remove('active');
+  }
+}
 
 feed.addEventListener('scroll', () => {
   const threshold = 40;
