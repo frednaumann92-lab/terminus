@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Command Center v7.4 // Fully Optimized & Streamlined</title>
+<title>Command Center v7.5 // Rooms & Host Controls</title>
 
 <!-- MQTT Library for instant cross-computer sync -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
@@ -109,6 +109,19 @@
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
+  }
+
+  /* Room Control Banner */
+  .room-banner {
+    background: rgba(0, 255, 204, 0.05);
+    border: 1px solid var(--glow-color);
+    padding: 6px 12px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85em;
+    flex-shrink: 0;
   }
 
   /* Mobile Tab Bar (Hidden on Desktop) */
@@ -303,12 +316,35 @@
     margin-bottom: 6px;
   }
 
+  /* Rooms Board List */
+  #rooms-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .room-card {
+    background: #090d14;
+    border: 1px solid var(--border-color);
+    padding: 6px 8px;
+    border-radius: 3px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8em;
+  }
+  .room-card.active-room {
+    border-color: var(--glow-color);
+    background: rgba(0, 255, 204, 0.05);
+  }
+
   #radar-list {
     display: flex;
     flex-direction: column;
     gap: 6px;
     font-size: 0.85em;
-    max-height: 140px;
+    max-height: 120px;
     overflow-y: auto;
   }
 
@@ -470,12 +506,12 @@
     box-shadow: 0 0 12px rgba(0, 255, 204, 0.4);
   }
 
-  #muteBtn, #notifBtn, #ttsBtn, #burnerBtn, #helpBtn {
+  #muteBtn, #notifBtn, #ttsBtn, #burnerBtn, #helpBtn, #createRoomBtn {
     padding: 6px 8px;
     font-size: 13px;
   }
 
-  #helpModal {
+  #helpModal, #roomModal {
     display: none;
     position: fixed;
     top: 0; left: 0;
@@ -598,7 +634,7 @@
 
 <header>
   <div class="logo-area">
-    <div class="logo" id="headerLogo">🛰 TERMINUS_COMMAND_CENTER // v7.4</div>
+    <div class="logo" id="headerLogo">🛰 TERMINUS_COMMAND_CENTER // v7.5</div>
     <div id="connectionBadge" class="connection-badge offline">OFFLINE</div>
   </div>
   <div class="header-controls">
@@ -610,6 +646,7 @@
       <option value="EN ROUTE">En Route</option>
       <option value="ON SCENE">On Scene</option>
     </select>
+    <button id="createRoomBtn" title="Create New Chat Room" style="color: var(--glow-color);">➕ Room</button>
     <button id="helpBtn" title="Help & Command Key">❓</button>
     <button id="burnerBtn" title="Toggle Burner Message Mode (60s Self-Destruct)" style="color: var(--text-muted);">🔥</button>
     <button id="ttsBtn" title="Toggle Text-to-Speech Voice Dispatcher" style="color: var(--glow-color);">🗣</button>
@@ -618,10 +655,20 @@
   </div>
 </header>
 
+<!-- Room Status & Host Control Bar -->
+<div class="room-banner" id="roomBanner">
+  <div>ACTIVE ROOM: <strong id="currentRoomName" style="color: var(--glow-color);">global-main</strong> <span id="hostBadge" style="display:none; color: var(--accent-orange); margin-left: 6px;">[👑 HOST]</span></div>
+  <div id="hostControlsBar" style="display: none; gap: 6px;">
+    <button class="macro-btn" onclick="hostMuteAll()" style="color: var(--accent-red); border-color: var(--accent-red);">MUTE ROOM</button>
+    <button class="macro-btn" onclick="hostLockRoom()" id="lockRoomBtn">LOCK ROOM</button>
+    <button class="macro-btn" onclick="hostWipeRoom()" style="color: var(--accent-red);">WIPE ROOM</button>
+  </div>
+</div>
+
 <!-- Mobile Tab Switcher (Only visible on mobile screens) -->
 <div class="mobile-tab-bar">
   <button class="mobile-tab-btn active" id="tabFeedBtn" onclick="switchMobileTab('feed')">💬 CHAT FEED</button>
-  <button class="mobile-tab-btn" id="tabRadarBtn" onclick="switchMobileTab('radar')">🛰 RADAR & CANVAS</button>
+  <button class="mobile-tab-btn" id="tabRadarBtn" onclick="switchMobileTab('radar')">🛰 BOARD & RADAR</button>
 </div>
 
 <div class="main-container">
@@ -633,7 +680,7 @@
     <div id="feed">
       <div class="msg">
         <div class="msg-meta"><span class="user" style="color: var(--glow-color)">[SYSTEM]</span><span class="time">CORE_READY</span></div>
-        <div class="text-payload sys-alert">&gt;&gt; Optimized core stream initialized. Drag-to-draw pixel canvas and sync online.</div>
+        <div class="text-payload sys-alert">&gt;&gt; Multi-room command matrix initialized. Join or create private rooms via the board.</div>
       </div>
     </div>
     <div id="scrollNotice" onclick="scrollToBottom()">New messages below [↓]</div>
@@ -641,7 +688,11 @@
   
   <div id="radar-panel">
     <div>
-      <div class="panel-title"><span class="status-dot"></span> Active Matrix Nodes</div>
+      <div class="panel-title"><span style="color: var(--glow-color);">📋</span> Active Rooms Board</div>
+      <div id="rooms-list"></div>
+    </div>
+    <div>
+      <div class="panel-title"><span class="status-dot"></span> Matrix Nodes in Room</div>
       <div id="radar-list"></div>
     </div>
     <div>
@@ -651,6 +702,10 @@
         <div id="paletteBar" class="palette-bar"></div>
         <button class="macro-btn" id="clearCanvasBtn" title="Clear Canvas" style="font-size: 0.65em; padding: 4px 8px;">CLEAR</button>
       </div>
+    </div>
+    <div>
+      <div class="panel-title"><span style="color: var(--glow-color);">🕒</span> Central Time Clock</div>
+      <div id="centralClockDisplay" style="font-size: 1.15em; font-weight: bold; color: var(--glow-color); text-align: center; padding: 4px 0; letter-spacing: 1px;">00:00:00 CST</div>
     </div>
   </div>
 </div>
@@ -666,8 +721,27 @@
   </div>
   <div id="inputBar">
     <span style="color: var(--glow-color); font-weight: bold; margin-right: 2px; user-select: none;">&gt;</span>
-    <input id="msgInput" placeholder="Type message or command (/theme, /urgent, /clear)..." autocomplete="off" autofocus />
+    <input id="msgInput" placeholder="Type message or command (/room, /theme, /urgent)..." autocomplete="off" autofocus />
     <button id="sendBtn">EXECUTE</button>
+  </div>
+</div>
+
+<!-- Room Creation Modal -->
+<div id="roomModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span style="font-weight: bold; color: var(--glow-color); font-size: 0.95em;">// INITIALIZE PRIVATE / PUBLIC ROOM</span>
+      <button id="closeRoomModalBtn" style="padding: 2px 8px; font-size: 0.8em;">[X]</button>
+    </div>
+    <div class="modal-body">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <label style="font-size: 0.85em; color: var(--text-muted);">ROOM IDENTIFIER:</label>
+        <input id="newRoomNameInput" placeholder="e.g. tactical-alpha" autocomplete="off" />
+        <label style="font-size: 0.85em; color: var(--text-muted);">ROOM PASSWORD (OPTIONAL FOR PRIVATE ROOMS):</label>
+        <input id="newRoomPassInput" type="password" placeholder="Leave blank for public room" autocomplete="off" />
+        <button id="confirmCreateRoomBtn" style="background: var(--glow-color); color: var(--bg-dark); margin-top: 8px;">CREATE & JOIN ROOM</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -681,19 +755,16 @@
       <div>
         <div class="modal-section-title">Slash Commands</div>
         <ul>
+          <li><code>/room &lt;name&gt; [password]</code> - Switch or create room</li>
           <li><code>/theme &lt;name&gt;</code> - Switch UI style (<code>cyberpunk</code>, <code>matrix</code>, <code>retro</code>, <code>void</code>)</li>
           <li><code>/clear</code> - Clear feed view locally and broadcast</li>
           <li><code>/del last</code> - Delete the most recent message</li>
-          <li><code>/wipe</code> - Erase all chat history</li>
-          <li><code>/export</code> - Download log transcript file</li>
         </ul>
       </div>
       <div>
-        <div class="modal-section-title">Shortcuts</div>
+        <div class="modal-section-title">Host Controls</div>
         <ul>
-          <li><code>Ctrl + K</code> - Focus feed filter</li>
-          <li><code>Alt + U</code> - Focus input and tag as urgent</li>
-          <li><code>Esc</code> - Close modal or unfocus inputs</li>
+          <li>Creators of rooms receive Host privileges (👑) allowing them to lock rooms, mute room participants, wipe logs, or kick specific operators from the radar list.</li>
         </ul>
       </div>
     </div>
@@ -701,7 +772,15 @@
 </div>
 
 <script>
-const TOPIC_PREFIX = "terminus_cmd_center_v74_";
+const BASE_TOPIC_PREFIX = "terminus_cmd_center_v75_";
+let currentRoom = "global-main";
+let roomPassword = "";
+let isHost = false;
+let roomLocked = false;
+let roomMuted = false;
+
+let TOPIC_PREFIX = BASE_TOPIC_PREFIX + currentRoom + "_";
+
 const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
   clientId: 'operator_' + Math.random().toString(16).substring(2, 8),
   keepalive: 30,
@@ -721,14 +800,51 @@ const burnerBtn = document.getElementById("burnerBtn");
 const helpBtn = document.getElementById("helpBtn");
 const helpModal = document.getElementById("helpModal");
 const closeHelpBtn = document.getElementById("closeHelpBtn");
+const roomModal = document.getElementById("roomModal");
+const createRoomBtn = document.getElementById("createRoomBtn");
+const closeRoomModalBtn = document.getElementById("closeRoomModalBtn");
+const confirmCreateRoomBtn = document.getElementById("confirmCreateRoomBtn");
+const newRoomNameInput = document.getElementById("newRoomNameInput");
+const newRoomPassInput = document.getElementById("newRoomPassInput");
+const currentRoomName = document.getElementById("currentRoomName");
+const hostBadge = document.getElementById("hostBadge");
+const hostControlsBar = document.getElementById("hostControlsBar");
+const lockRoomBtn = document.getElementById("lockRoomBtn");
+const roomsList = document.getElementById("rooms-list");
 const radarList = document.getElementById("radar-list");
 const headerLogo = document.getElementById("headerLogo");
 const connectionBadge = document.getElementById("connectionBadge");
 const feedSearch = document.getElementById("feedSearch");
 const exportBtn = document.getElementById("exportBtn");
 const scrollNotice = document.getElementById("scrollNotice");
+const centralClockDisplay = document.getElementById("centralClockDisplay");
+
+let knownRooms = new Map(); // roomName -> { hostId, locked, password, lastActive }
 
 let userScrolledUp = false;
+
+function updateCentralClock() {
+  const now = new Date();
+  try {
+    const timeString = now.toLocaleTimeString('en-US', {
+      timeZone: 'America/Chicago',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    const tzString = now.toLocaleDateString('en-US', {
+      timeZone: 'America/Chicago',
+      timeZoneName: 'short'
+    });
+    const tzAbbr = tzString.split(', ').pop() || 'CT';
+    centralClockDisplay.textContent = `${timeString} ${tzAbbr}`;
+  } catch (e) {
+    centralClockDisplay.textContent = now.toLocaleTimeString() + " CT";
+  }
+}
+setInterval(updateCentralClock, 1000);
+updateCentralClock();
 
 function switchMobileTab(tab) {
   const mainContainer = document.querySelector('.main-container');
@@ -763,6 +879,91 @@ helpBtn.onclick = () => helpModal.style.display = "flex";
 closeHelpBtn.onclick = () => helpModal.style.display = "none";
 helpModal.onclick = (e) => { if (e.target === helpModal) helpModal.style.display = "none"; };
 
+createRoomBtn.onclick = () => roomModal.style.display = "flex";
+closeRoomModalBtn.onclick = () => roomModal.style.display = "none";
+roomModal.onclick = (e) => { if (e.target === roomModal) roomModal.style.display = "none"; };
+
+confirmCreateRoomBtn.onclick = () => {
+  const rName = newRoomNameInput.value.trim().toLowerCase().replaceAll(/[^a-z0-9-_]/g, '');
+  const rPass = newRoomPassInput.value;
+  if (!rName) return alert("Please specify a valid room name.");
+  roomModal.style.display = "none";
+  newRoomNameInput.value = "";
+  newRoomPassInput.value = "";
+  joinRoom(rName, rPass, true);
+};
+
+function joinRoom(roomName, pass = "", makeHost = false) {
+  // Check if room requires password verification
+  const roomInfo = knownRooms.get(roomName);
+  if (roomInfo && roomInfo.password && roomInfo.password !== pass && roomInfo.hostId !== myId) {
+    const enteredPass = prompt(`Room "${roomName}" requires a password. Enter room password:`);
+    if (enteredPass !== roomInfo.password) {
+      alert("Incorrect password or access denied.");
+      return;
+    }
+    pass = enteredPass;
+  }
+
+  // Unsubscribe from old topic
+  if (client.connected) {
+    client.unsubscribe(TOPIC_PREFIX + 'chat');
+    client.unsubscribe(TOPIC_PREFIX + 'presence');
+    client.unsubscribe(TOPIC_PREFIX + 'cmd');
+    client.unsubscribe(TOPIC_PREFIX + 'pixel');
+    client.unsubscribe(TOPIC_PREFIX + 'control');
+  }
+
+  currentRoom = roomName;
+  roomPassword = pass;
+  TOPIC_PREFIX = BASE_TOPIC_PREFIX + currentRoom + "_";
+  
+  if (makeHost || (roomInfo && roomInfo.hostId === myId)) {
+    isHost = true;
+  } else if (!roomInfo) {
+    isHost = true; // First person creates room as host
+  } else {
+    isHost = false;
+  }
+
+  roomLocked = roomInfo ? roomInfo.locked : false;
+  roomMuted = false;
+
+  currentRoomName.textContent = currentRoom;
+  hostBadge.style.display = isHost ? "inline" : "none";
+  hostControlsBar.style.display = isHost ? "flex" : "none";
+  lockRoomBtn.textContent = roomLocked ? "UNLOCK ROOM" : "LOCK ROOM";
+
+  // Load local storage messages for this room if any
+  messages = JSON.parse(localStorage.getItem(`cmd_messages_v75_${currentRoom}`) || "[]");
+  renderMessages();
+
+  if (client.connected) {
+    client.subscribe(TOPIC_PREFIX + 'chat');
+    client.subscribe(TOPIC_PREFIX + 'presence');
+    client.subscribe(TOPIC_PREFIX + 'cmd');
+    client.subscribe(TOPIC_PREFIX + 'pixel');
+    client.subscribe(TOPIC_PREFIX + 'control');
+    sendPresence();
+    broadcastRoomDirectory();
+  }
+
+  feed.innerHTML = "";
+  renderMessages();
+}
+
+function broadcastRoomDirectory() {
+  knownRooms.set(currentRoom, { hostId: isHost ? myId : (knownRooms.get(currentRoom)?.hostId || myId), locked: roomLocked, password: roomPassword, lastActive: Date.now() });
+  client.publish(BASE_TOPIC_PREFIX + 'directory', JSON.stringify({
+    room: currentRoom,
+    hostId: isHost ? myId : (knownRooms.get(currentRoom)?.hostId || myId),
+    locked: roomLocked,
+    password: roomPassword,
+    time: Date.now()
+  }));
+}
+setInterval(broadcastRoomDirectory, 5000);
+
 notifBtn.onclick = async () => {
   if (!("Notification" in window)) return alert("Notifications not supported.");
   const permission = await Notification.requestPermission();
@@ -796,7 +997,7 @@ burnerBtn.onclick = () => {
 };
 
 const GRID_SIZE = 16;
-let pixelGridData = JSON.parse(localStorage.getItem("cmd_pixels_v74") || JSON.stringify(Array(GRID_SIZE * GRID_SIZE).fill("#05070a")));
+let pixelGridData = JSON.parse(localStorage.getItem("cmd_pixels_v75") || JSON.stringify(Array(GRID_SIZE * GRID_SIZE).fill("#05070a")));
 let selectedColor = "#00ffcc";
 let isDrawing = false;
 const paletteColors = ["#05070a", "#ffffff", "#ff3366", "#00ffcc", "#ff9900", "#bc6ff1", "#00ff66", "#3b82f6"];
@@ -804,7 +1005,7 @@ const paletteColors = ["#05070a", "#ffffff", "#ff3366", "#00ffcc", "#ff9900", "#
 function paintPixel(index, cell) {
   pixelGridData[index] = selectedColor;
   cell.style.background = selectedColor;
-  localStorage.setItem("cmd_pixels_v74", JSON.stringify(pixelGridData));
+  localStorage.setItem("cmd_pixels_v75", JSON.stringify(pixelGridData));
   client.publish(TOPIC_PREFIX + 'pixel', JSON.stringify({ index, color: selectedColor }));
 }
 
@@ -831,7 +1032,7 @@ function initPixelCanvas() {
 
   clearBtn.onclick = () => {
     pixelGridData = Array(GRID_SIZE * GRID_SIZE).fill("#05070a");
-    localStorage.setItem("cmd_pixels_v74", JSON.stringify(pixelGridData));
+    localStorage.setItem("cmd_pixels_v75", JSON.stringify(pixelGridData));
     const cells = document.getElementsByClassName("pixel-cell");
     for(let i=0; i<cells.length; i++) {
       cells[i].style.background = "#05070a";
@@ -882,6 +1083,7 @@ initPixelCanvas();
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (helpModal.style.display === 'flex') helpModal.style.display = 'none';
+    else if (roomModal.style.display === 'flex') roomModal.style.display = 'none';
     else { input.blur(); feedSearch.blur(); }
   }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
@@ -896,7 +1098,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 const themes = {
-  cyberpunk: { "--bg-dark": "#05070a", "--panel-bg": "#0b111a", "--border-color": "#1a2636", "--glow-color": "#00ffcc", "--text-primary": "#cbd5e1", "--text-muted": "#4e6580", "logo-text": "🛰 TERMINUS_COMMAND_CENTER // v7.4" },
+  cyberpunk: { "--bg-dark": "#05070a", "--panel-bg": "#0b111a", "--border-color": "#1a2636", "--glow-color": "#00ffcc", "--text-primary": "#cbd5e1", "--text-muted": "#4e6580", "logo-text": "🛰 TERMINUS_COMMAND_CENTER // v7.5" },
   matrix: { "--bg-dark": "#020502", "--panel-bg": "#050f06", "--border-color": "#0f3011", "--glow-color": "#00ff33", "--text-primary": "#a3ffa8", "--text-muted": "#38823e", "logo-text": "📟 NEB_MATRIX_CORE // RELOADED" },
   retro: { "--bg-dark": "#120a00", "--panel-bg": "#241400", "--border-color": "#4d2b00", "--glow-color": "#ffb300", "--text-primary": "#ffe4a3", "--text-muted": "#8a5c16", "logo-text": "📜 AMBER_TERMINAL_VINTAGE // 1984" },
   void: { "--bg-dark": "#0a050c", "--panel-bg": "#140b19", "--border-color": "#331340", "--glow-color": "#d946ef", "--text-primary": "#fae8ff", "--text-muted": "#704680", "logo-text": "🔮 VOID_NEXUS_SUBSYSTEM // UNKNOWN" }
@@ -909,13 +1111,13 @@ function applyTheme(themeName) {
     if (variable !== "logo-text") document.documentElement.style.setProperty(variable, value);
   });
   headerLogo.textContent = targetTheme["logo-text"];
-  localStorage.setItem("cmd_theme_v74", themeName);
+  localStorage.setItem("cmd_theme_v75", themeName);
   return true;
 }
-applyTheme(localStorage.getItem("cmd_theme_v74") || "cyberpunk");
+applyTheme(localStorage.getItem("cmd_theme_v75") || "cyberpunk");
 
-usernameBox.value = localStorage.getItem("cmd_user_v74") || "OPERATOR_" + Math.floor(1000 + Math.random() * 9000);
-statusSelect.value = localStorage.getItem("cmd_status_v74") || "10-8 ACTIVE";
+usernameBox.value = localStorage.getItem("cmd_user_v75") || "OPERATOR_" + Math.floor(1000 + Math.random() * 9000);
+statusSelect.value = localStorage.getItem("cmd_status_v75") || "10-8 ACTIVE";
 
 function getUsernameColor(username) {
   let hash = 0;
@@ -925,12 +1127,12 @@ function getUsernameColor(username) {
 
 usernameBox.addEventListener("change", () => {
   usernameBox.value = usernameBox.value.trim() || "anon";
-  localStorage.setItem("cmd_user_v74", usernameBox.value);
+  localStorage.setItem("cmd_user_v75", usernameBox.value);
   sendPresence();
 });
 
 statusSelect.addEventListener("change", () => {
-  localStorage.setItem("cmd_status_v74", statusSelect.value);
+  localStorage.setItem("cmd_status_v75", statusSelect.value);
   sendPresence();
 });
 
@@ -971,7 +1173,7 @@ function clean(str) {
   return String(str).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
-let messages = JSON.parse(localStorage.getItem("cmd_messages_v74") || "[]");
+let messages = JSON.parse(localStorage.getItem(`cmd_messages_v75_${currentRoom}`) || "[]");
 
 function renderMessages(filterText = "") {
   feed.innerHTML = "";
@@ -979,14 +1181,25 @@ function renderMessages(filterText = "") {
   const now = Date.now();
   
   messages = messages.filter(msg => !msg.expiresAt || msg.expiresAt > now);
-
   const filtered = messages.filter(msg => !query || msg.text.toLowerCase().includes(query) || msg.user.toLowerCase().includes(query));
 
   filtered.forEach(msg => {
     const div = document.createElement("div");
     div.className = `msg ${msg.priority || ''} ${msg.isBurner ? 'burner-msg' : ''}`;
     
-    const timeStr = new Date(msg.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+    let timeStr = "";
+    try {
+      timeStr = new Date(msg.time).toLocaleTimeString('en-US', {
+        timeZone: 'America/Chicago',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (e) {
+      timeStr = new Date(msg.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+    }
+
     const userColor = msg.isSys ? "var(--glow-color)" : getUsernameColor(msg.user);
     
     let priorityBadge = "";
@@ -1015,7 +1228,7 @@ setInterval(() => {
   const len = messages.length;
   messages = messages.filter(msg => !msg.expiresAt || msg.expiresAt > now);
   if (messages.length !== len) {
-    localStorage.setItem("cmd_messages_v74", JSON.stringify(messages));
+    localStorage.setItem(`cmd_messages_v75_${currentRoom}`, JSON.stringify(messages));
     renderMessages(feedSearch.value);
   }
 }, 1000);
@@ -1028,7 +1241,7 @@ exportBtn.onclick = () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `command_center_logs_${Date.now()}.txt`;
+  a.download = `command_center_${currentRoom}_logs_${Date.now()}.txt`;
   a.click();
   URL.revokeObjectURL(url);
 };
@@ -1038,11 +1251,14 @@ let activeOperators = new Map();
 client.on('connect', () => {
   connectionBadge.textContent = "ONLINE";
   connectionBadge.className = "connection-badge online";
+  client.subscribe(BASE_TOPIC_PREFIX + 'directory');
   client.subscribe(TOPIC_PREFIX + 'chat');
   client.subscribe(TOPIC_PREFIX + 'presence');
   client.subscribe(TOPIC_PREFIX + 'cmd');
   client.subscribe(TOPIC_PREFIX + 'pixel');
+  client.subscribe(TOPIC_PREFIX + 'control');
   sendPresence();
+  broadcastRoomDirectory();
 });
 
 client.on('offline', () => {
@@ -1063,9 +1279,17 @@ setInterval(sendPresence, 4000);
 client.on('message', (topic, payload) => {
   try {
     const data = JSON.parse(payload.toString());
-    if (topic === TOPIC_PREFIX + 'chat') {
+    
+    if (topic === BASE_TOPIC_PREFIX + 'directory') {
+      if (data.room) {
+        knownRooms.set(data.room, { hostId: data.hostId, locked: data.locked, password: data.password, lastActive: data.time });
+        updateRoomsBoard();
+      }
+    }
+    else if (topic === TOPIC_PREFIX + 'chat') {
+      if (roomMuted && !isHost) return; // Ignore if host muted room
       messages.push(data);
-      localStorage.setItem("cmd_messages_v74", JSON.stringify(messages));
+      localStorage.setItem(`cmd_messages_v75_${currentRoom}`, JSON.stringify(messages));
       renderMessages(feedSearch.value);
       
       if (data.priority === 'critical') { soundCritical(); speakMessage(data.user, data.text); }
@@ -1078,17 +1302,66 @@ client.on('message', (topic, payload) => {
     }
     else if (topic === TOPIC_PREFIX + 'pixel' && typeof data.index === 'number') {
       pixelGridData[data.index] = data.color;
-      localStorage.setItem("cmd_pixels_v74", JSON.stringify(pixelGridData));
+      localStorage.setItem("cmd_pixels_v75", JSON.stringify(pixelGridData));
       const cells = document.getElementsByClassName("pixel-cell");
       if (cells[data.index]) cells[data.index].style.background = data.color;
     }
     else if (topic === TOPIC_PREFIX + 'cmd') {
       if (data.action === 'clear') feed.innerHTML = "";
-      else if (data.action === 'wipe') { soundDanger(); messages = []; localStorage.setItem("cmd_messages_v74", JSON.stringify(messages)); renderMessages(); }
-      else if (data.action === 'dellast') { messages.pop(); localStorage.setItem("cmd_messages_v74", JSON.stringify(messages)); renderMessages(feedSearch.value); }
+      else if (data.action === 'wipe') { soundDanger(); messages = []; localStorage.setItem(`cmd_messages_v75_${currentRoom}`, JSON.stringify(messages)); renderMessages(); }
+      else if (data.action === 'dellast') { messages.pop(); localStorage.setItem(`cmd_messages_v75_${currentRoom}`, JSON.stringify(messages)); renderMessages(feedSearch.value); }
+    }
+    else if (topic === TOPIC_PREFIX + 'control') {
+      if (data.action === 'lock') {
+        roomLocked = data.locked;
+        if (roomLocked) alert(`Host locked room: ${currentRoom}`);
+      } else if (data.action === 'muteall') {
+        roomMuted = data.muted;
+        alert(roomMuted ? "Host has muted room transmissions." : "Room transmissions unmuted.");
+      } else if (data.action === 'wipe') {
+        messages = [];
+        localStorage.setItem(`cmd_messages_v75_${currentRoom}`, JSON.stringify(messages));
+        renderMessages();
+        alert("Host wiped room history.");
+      } else if (data.action === 'kick' && data.targetId === myId) {
+        alert("You have been kicked from the room by the host.");
+        joinRoom("global-main", "", false);
+      }
     }
   } catch(e) {}
 });
+
+function updateRoomsBoard() {
+  roomsList.innerHTML = "";
+  const now = Date.now();
+  for (let [rName, rData] of knownRooms.entries()) {
+    if (now - rData.lastActive > 20000) {
+      knownRooms.delete(rName);
+      continue;
+    }
+    const card = document.createElement("div");
+    card.className = `room-card ${rName === currentRoom ? 'active-room' : ''}`;
+    card.innerHTML = `
+      <div><strong>#${clean(rName)}</strong> ${rData.password ? '🔒' : ''} ${rData.hostId === myId ? '(HOST)' : ''}</div>
+      <button class="macro-btn" onclick="promptJoin('${rName}')" style="font-size: 0.75em; padding: 2px 6px;">${rName === currentRoom ? 'ACTIVE' : 'JOIN'}</button>
+    `;
+    roomsList.appendChild(card);
+  }
+}
+setInterval(updateRoomsBoard, 3000);
+
+function promptJoin(roomName) {
+  const roomInfo = knownRooms.get(roomName);
+  let pass = "";
+  if (roomInfo && roomInfo.password && roomInfo.hostId !== myId) {
+    pass = prompt(`Room "${roomName}" requires a password. Enter room password:`) || "";
+    if (pass !== roomInfo.password) {
+      alert("Incorrect password or access denied.");
+      return;
+    }
+  }
+  joinRoom(roomName, pass, false);
+}
 
 function updateRadarList() {
   radarList.innerHTML = "";
@@ -1110,9 +1383,18 @@ function updateRadarList() {
     if (id !== myId) {
       const row = document.createElement("div");
       row.className = "operator-row";
+      
+      let kickBtnHtml = "";
+      if (isHost) {
+        kickBtnHtml = `<button class="macro-btn" onclick="hostKickUser('${id}', '${clean(data.user)}')" style="font-size: 0.6em; padding: 1px 4px; color: var(--accent-red); border-color: var(--accent-red);">KICK</button>`;
+      }
+
       row.innerHTML = `
         <div class="operator-info"><span class="status-dot"></span><span style="color: ${getUsernameColor(data.user)}">${clean(data.user)}</span></div>
-        <span class="status-badge-mini">${clean(data.status || 'ONLINE')}</span>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <span class="status-badge-mini">${clean(data.status || 'ONLINE')}</span>
+          ${kickBtnHtml}
+        </div>
       `;
       radarList.appendChild(row);
     }
@@ -1120,24 +1402,64 @@ function updateRadarList() {
 }
 setInterval(updateRadarList, 3000);
 
+// Host Control Functions
+function hostLockRoom() {
+  if (!isHost) return;
+  roomLocked = !roomLocked;
+  lockRoomBtn.textContent = roomLocked ? "UNLOCK ROOM" : "LOCK ROOM";
+  client.publish(TOPIC_PREFIX + 'control', JSON.stringify({ action: 'lock', locked: roomLocked }));
+  broadcastRoomDirectory();
+}
+
+function hostMuteAll() {
+  if (!isHost) return;
+  roomMuted = !roomMuted;
+  client.publish(TOPIC_PREFIX + 'control', JSON.stringify({ action: 'muteall', muted: roomMuted }));
+}
+
+function hostWipeRoom() {
+  if (!isHost) return;
+  if (!confirm("Wipe all logs in this room for everyone?")) return;
+  messages = [];
+  localStorage.setItem(`cmd_messages_v75_${currentRoom}`, JSON.stringify(messages));
+  renderMessages();
+  client.publish(TOPIC_PREFIX + 'control', JSON.stringify({ action: 'wipe' }));
+}
+
+function hostKickUser(targetId, targetName) {
+  if (!isHost) return;
+  if (!confirm(`Are you sure you want to kick operator ${targetName}?`)) return;
+  client.publish(TOPIC_PREFIX + 'control', JSON.stringify({ action: 'kick', targetId: targetId }));
+}
+
 function handleCommand(text) {
   const cmd = text.trim().toLowerCase();
+  if (cmd.startsWith("/room ")) {
+    const parts = cmd.split(" ");
+    const rName = parts[1]?.replaceAll(/[^a-z0-9-_]/g, '');
+    const rPass = parts[2] || "";
+    if (rName) joinRoom(rName, rPass);
+    return true;
+  }
   if (cmd.startsWith("/theme ")) {
     if (applyTheme(cmd.split(" ")[1])) {
       messages.push({ id: crypto.randomUUID?.() || Date.now(), user: "[SYSTEM]", text: "Theme updated successfully.", time: Date.now(), isSys: true });
-      localStorage.setItem("cmd_messages_v74", JSON.stringify(messages));
+      localStorage.setItem(`cmd_messages_v75_${currentRoom}`, JSON.stringify(messages));
       renderMessages(feedSearch.value);
     }
     return true;
   }
   if (cmd === "/clear") { feed.innerHTML = ""; client.publish(TOPIC_PREFIX + 'cmd', JSON.stringify({ action: 'clear' })); return true; }
-  if (cmd === "/del last") { if (messages.length) { messages.pop(); localStorage.setItem("cmd_messages_v74", JSON.stringify(messages)); renderMessages(feedSearch.value); client.publish(TOPIC_PREFIX + 'cmd', JSON.stringify({ action: 'dellast' })); } return true; }
-  if (cmd === "/wipe") { soundDanger(); messages = []; localStorage.setItem("cmd_messages_v74", JSON.stringify(messages)); renderMessages(); client.publish(TOPIC_PREFIX + 'cmd', JSON.stringify({ action: 'wipe' })); return true; }
+  if (cmd === "/del last") { if (messages.length) { messages.pop(); localStorage.setItem(`cmd_messages_v75_${currentRoom}`, JSON.stringify(messages)); renderMessages(feedSearch.value); client.publish(TOPIC_PREFIX + 'cmd', JSON.stringify({ action: 'dellast' })); } return true; }
   if (cmd === "/export") { exportBtn.click(); return true; }
   return false;
 }
 
 function send(customText = null, customPriority = 'normal') {
+  if (roomMuted && !isHost) {
+    alert("Room is currently muted by host.");
+    return;
+  }
   const text = customText !== null ? customText : input.value.trim();
   if (!text) return;
 
@@ -1180,4 +1502,4 @@ input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
 </script>
 
 </body>
-</html>
+</html
