@@ -6,11 +6,34 @@
 <title>Command Center v7.5 // Rooms & Host Controls</title>
 
 <!-- MQTT Library for instant cross-computer sync -->
-const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
-    clientId: 'terminus_client_' + Math.random().toString(16).substring(2, 8),
-    clean: true,
-    connectTimeout: 4000,
-});
+<!-- MQTT.js Library -->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<script>
+    // MQTT connection for instant cross-computer sync
+    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+        clientId: 'terminus_client_' + Math.random().toString(16).substring(2, 8),
+        clean: true,
+        connectTimeout: 4000,
+        reconnectPeriod: 1000
+    });
+
+    client.on('connect', () => {
+        console.log('MQTT connected');
+    });
+
+    client.on('error', (error) => {
+        console.error('MQTT error:', error);
+    });
+
+    client.on('reconnect', () => {
+        console.log('MQTT reconnecting...');
+    });
+
+    client.on('offline', () => {
+        console.log('MQTT offline');
+    });
+</script>
 
 <style>
   :root {
