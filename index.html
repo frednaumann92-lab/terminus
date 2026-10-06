@@ -6,7 +6,11 @@
 <title>Command Center v7.5 // Rooms & Host Controls</title>
 
 <!-- MQTT Library for instant cross-computer sync -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+    clientId: 'terminus_client_' + Math.random().toString(16).substring(2, 8),
+    clean: true,
+    connectTimeout: 4000,
+});
 
 <style>
   :root {
